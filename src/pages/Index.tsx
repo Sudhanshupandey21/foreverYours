@@ -19,17 +19,38 @@ const Index = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    audioRef.current = new Audio('/src/pages/WhatsApp Audio 2026-02-14 at 12.56.45 AM.mpeg');
-    audioRef.current.loop = true;
-    audioRef.current.volume = 0.3;
+    const audio = new Audio('/music.mpeg');
+    audio.loop = true;
+    audio.volume = 0.3;
+    audio.preload = 'metadata'; // Preload audio metadata
+
+    // Add error handling
+    audio.addEventListener('error', (e) => {
+      console.warn('Audio failed to load:', e);
+    });
+
+    audioRef.current = audio;
+
     return () => {
-      audioRef.current?.pause();
+      audio.pause();
+      audio.removeEventListener('error', () => {});
     };
   }, []);
 
-  const startMusic = useCallback(() => {
+  const startMusic = useCallback(async () => {
     if (!musicPlaying && audioRef.current) {
-      audioRef.current.play().then(() => setMusicPlaying(true)).catch(() => {});
+      try {
+        await audioRef.current.play();
+        setMusicPlaying(true);
+      } catch (error) {
+        console.warn('Audio play failed:', error);
+        // Retry after a short delay (handles browser autoplay restrictions)
+        setTimeout(() => {
+          if (audioRef.current && !musicPlaying) {
+            audioRef.current.play().then(() => setMusicPlaying(true)).catch(() => {});
+          }
+        }, 100);
+      }
     }
   }, [musicPlaying]);
 
@@ -303,14 +324,19 @@ const Index = () => {
 
       {/* Music indicator */}
       <button
-        onClick={(e) => {
+        onClick={async (e) => {
           e.stopPropagation();
           if (audioRef.current) {
             if (musicPlaying) {
               audioRef.current.pause();
               setMusicPlaying(false);
             } else {
-              audioRef.current.play().then(() => setMusicPlaying(true)).catch(() => {});
+              try {
+                await audioRef.current.play();
+                setMusicPlaying(true);
+              } catch (error) {
+                console.warn('Audio toggle failed:', error);
+              }
             }
           }
         }}
